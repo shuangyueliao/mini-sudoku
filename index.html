@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0e0e1a">
+<meta name="description" content="Mini Sudoku — free HTML5 sudoku with 4x4, 6x6 and 9x9 grids, three difficulties, unique solutions, pencil notes and best times. No downloads, no tracking.">
+<title>Mini Sudoku · Free Online Sudoku Puzzle</title>
+<script>
+// 平台 SDK 按域名条件加载（独立运行时完全不加载，游戏行为不变）
+(function () {
+  var host = location.hostname || "";
+  try {
+    if (host.indexOf("crazygames") !== -1) {
+      var s1 = document.createElement("script");
+      s1.src = "https://sdk.crazygames.com/crazygames-sdk-v3.js";
+      s1.onload = function () {
+        if (window.CrazyGames && window.CrazyGames.SDK) {
+          window.CrazyGames.SDK.init().then(function () {
+            try { window.CrazyGames.SDK.game.loadingStart(); } catch (e) {}
+            window.addEventListener("load", function () { try { window.CrazyGames.SDK.game.loadingStop(); } catch (e) {} });
+          }).catch(function () {});
+        }
+      };
+      document.head.appendChild(s1);
+      window.__portal = "crazygames";
+    } else if (host.indexOf("gamedistribution") !== -1 || host.indexOf("html5.gamedistribution.com") !== -1 || host.indexOf("gd.games") !== -1) {
+      var s2 = document.createElement("script");
+      s2.src = "https://sdk.gamedistribution.com/v2/main.min.js";
+      document.head.appendChild(s2);
+      window.__portal = "gamedistribution";
+    }
+  } catch (e) {}
+})();
+</script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#0e0e1a; font-family:-apple-system,"Segoe UI","Helvetica Neue",Arial,sans-serif; }
+  body { user-select:none; -webkit-user-select:none; touch-action:manipulation; }
+  #wrap { height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  #hud { width:100%; max-width:520px; display:flex; justify-content:space-between; align-items:center; padding:8px 12px 4px; color:#e8e8f2; }
+  .stat { text-align:center; min-width:60px; }
+  .stat .label { font-size:10px; color:#8a8aa8; letter-spacing:1px; }
+  .stat .val { font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; }
+  #muteBtn { background:#1c1c30; color:#9a9ac0; border:1px solid #33334f; border-radius:10px; padding:10px 10px; font-size:10px; font-weight:700; cursor:pointer; letter-spacing:.5px; font-family:inherit; }
+  #muteBtn.on { color:#a8b4ff; border-color:#4a56b0; }
+  canvas { display:block; border-radius:12px; touch-action:none; }
+  #pad { width:100%; max-width:520px; padding:8px 12px 2px; transition:opacity .25s; }
+  #pad.off { opacity:.3; pointer-events:none; }
+  #digits { display:flex; gap:6px; justify-content:center; }
+  .key { flex:1; max-width:56px; height:46px; background:#1c1c30; border:1px solid #33334f; border-radius:10px; color:#dfe6ff; font-size:19px; font-weight:800; cursor:pointer; font-family:inherit; }
+  .key:active { transform:scale(.93); }
+  .key.done { opacity:.32; }
+  #digits.n9 .key { max-width:44px; font-size:15px; height:42px; }
+  #digits.n4 .key { max-width:76px; }
+  #tools { display:flex; gap:8px; justify-content:center; margin-top:7px; }
+  .tool { width:150px; max-width:46%; height:36px; background:#1c1c30; border:1px solid #33334f; border-radius:10px; color:#9a9ac0; font-size:12px; font-weight:700; cursor:pointer; letter-spacing:1px; font-family:inherit; }
+  .tool.on { color:#0e0e1a; background:#8b99ff; border-color:#8b99ff; }
+  .tool:active { transform:scale(.96); }
+  #footer { color:#55556e; font-size:11px; padding:6px; letter-spacing:.5px; }
+  #overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(8,8,18,.82); z-index:10; }
+  .panel { background:#161628; border:1px solid #33334f; border-radius:18px; padding:24px 26px; text-align:center; color:#fff; width:min(90vw,360px); max-height:92vh; overflow:auto; }
+  .panel h1 { font-size:26px; letter-spacing:2px; color:#a8b4ff; margin-bottom:6px; }
+  .panel h2 { font-size:22px; margin-bottom:4px; }
+  .panel .tag { color:#9a9ac0; font-size:12px; line-height:1.5; margin-bottom:8px; }
+  .panel .flabel { font-size:10px; color:#7a7aa0; letter-spacing:2px; margin:12px 0 6px; }
+  .orow { display:flex; gap:8px; }
+  .opt { flex:1; padding:9px 0; background:#1e1e36; border:1px solid #33334f; border-radius:10px; color:#c9cdf0; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .opt.sel { background:#3d49b8; border-color:#8b99ff; color:#fff; }
+  .final { font-size:36px; font-weight:900; color:#ffd76a; margin:6px 0 2px; }
+  .winmeta { color:#9a9ac0; font-size:13px; margin-bottom:4px; }
+  #recBadge { display:inline-block; background:#ffd76a; color:#3a2c00; font-size:11px; font-weight:800; letter-spacing:1px; border-radius:20px; padding:4px 14px; margin:6px 0 2px; }
+  .btn { display:block; width:100%; margin-top:14px; background:linear-gradient(135deg,#5b6cff,#8a5bff); color:#fff; border:none; border-radius:12px; padding:13px 0; font-size:16px; font-weight:800; cursor:pointer; font-family:inherit; letter-spacing:1px; }
+  .btn:active { transform:scale(.98); }
+  .btn2 { display:block; width:100%; margin-top:10px; background:transparent; color:#9a9ac0; border:1px solid #33334f; border-radius:12px; padding:11px 0; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
+  #menuBest { color:#8fe3b0; font-size:12px; min-height:16px; margin-top:12px; }
+  .hint { color:#6a6a8c; font-size:10.5px; line-height:1.6; margin-top:14px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div class="stat"><div class="label">TIME</div><div class="val" id="time">0:00</div></div>
+    <div class="stat"><div class="label">MISTAKES</div><div class="val" id="mistakes">0</div></div>
+    <div class="stat"><div class="label">BEST</div><div class="val" id="best">--</div></div>
+    <button id="muteBtn" class="on">SOUND ON</button>
+  </div>
+  <canvas id="game" width="360" height="360"></canvas>
+  <div id="pad" class="off">
+    <div id="digits" class="n9"></div>
+    <div id="tools">
+      <button class="tool" id="notesBtn">NOTES · OFF</button>
+      <button class="tool" id="eraseBtn">ERASE</button>
+    </div>
+  </div>
+  <div id="footer">Mini Sudoku — a free logic puzzle</div>
+</div>
+<div id="overlay">
+  <div class="panel" id="menuPanel">
+    <h1>MINI SUDOKU</h1>
+    <p class="tag">Classic sudoku, three grid sizes. Every puzzle is generated fresh — and has exactly one solution.</p>
+    <div class="flabel">GRID</div>
+    <div class="orow" id="sizeRow">
+      <button class="opt" data-size="4">4×4</button>
+      <button class="opt sel" data-size="6">6×6</button>
+      <button class="opt" data-size="9">9×9</button>
+    </div>
+    <div class="flabel">DIFFICULTY</div>
+    <div class="orow" id="diffRow">
+      <button class="opt" data-diff="easy">Easy</button>
+      <button class="opt sel" data-diff="medium">Medium</button>
+      <button class="opt" data-diff="hard">Hard</button>
+    </div>
+    <div id="menuBest"></div>
+    <button class="btn" id="startBtn">NEW GAME</button>
+    <p class="hint">Tap a cell, then pick a number. Fill every row, column and box.<br>Keyboard: 1-9 type · arrows move · Backspace erase · N notes · M mute.</p>
+  </div>
+  <div class="panel" id="winPanel" style="display:none">
+    <h2>Puzzle Solved!</h2>
+    <div class="final" id="finalTime">0:00</div>
+    <div class="winmeta" id="winMeta"></div>
+    <div class="winmeta" id="winMist"></div>
+    <div><span id="recBadge" style="display:none">NEW BEST TIME</span></div>
+    <button class="btn" id="againBtn">PLAY AGAIN</button>
+    <button class="btn2" id="menuBtn">CHANGE MODE</button>
+  </div>
+</div>
+<script>
+"use strict";
+// ================= 配置 =================
+var SIZES = { "4": [2, 2], "6": [2, 3], "9": [3, 3] };   // [宫宽bw, 宫高bh]（格数）
+var HOLES = {   // 难度 = 挖空数量
+  "4": { easy: 5, medium: 7, hard: 9 },
+  "6": { easy: 11, medium: 16, hard: 22 },
+  "9": { easy: 36, medium: 45, hard: 52 }
+};
+
+// ================= 数独生成器（node 抽测区） ================= <<<GEN-BEGIN>>>
+// 完整解：随机化 MRV 位运算回溯；挖空：随机顺序逐格试删，解计数器剪枝（数到 2 即停）保证唯一解
+function msShuffle(a) {
+  for (var i = a.length - 1; i > 0; i--) { var j = (Math.random() * (i + 1)) | 0, t = a[i]; a[i] = a[j]; a[j] = t; }
+  return a;
+}
+function msPop(m) { var c = 0; while (m) { m &= m - 1; c++; } return c; }
+function msGenerate(N, BW, BH, targetHoles, deadline) {
+  var NN = N * N, FULL = (1 << N) - 1, BC = N / BW;   // BC = 横向宫数
+  function boxOf(i) { return ((((i / N) | 0) / BH) | 0) * BC + (((i % N) / BW) | 0); }
+  var grid, rows, cols, boxes;
+  function cand(r, c) { return FULL & ~(rows[r] | cols[c] | boxes[boxOf(r * N + c)]); }
+  // 随机化回溯生成完整解
+  function genSolve() {
+    var bi = -1, bm = 0, bc = N + 1;
+    for (var i = 0; i < NN; i++) {
+      if (grid[i]) continue;
+      var m = cand((i / N) | 0, i % N), c = msPop(m);
+      if (c === 0) return false;
+      if (c < bc) { bc = c; bi = i; bm = m; if (c === 1) break; }
+    }
+    if (bi === -1) return true;
+    var ds = [], b = boxOf(bi), r = (bi / N) | 0, cc = bi % N;
+    for (var d = 1; d <= N; d++) if (bm & (1 << (d - 1))) ds.push(d);
+    msShuffle(ds);
+    for (var k = 0; k < ds.length; k++) {
+      var bit = 1 << (ds[k] - 1);
+      grid[bi] = ds[k]; rows[r] |= bit; cols[cc] |= bit; boxes[b] |= bit;
+      if (genSolve()) return true;
+      grid[bi] = 0; rows[r] &= ~bit; cols[cc] &= ~bit; boxes[b] &= ~bit;
+    }
+    return false;
+  }
+  // 解计数（找到 limit 个即停）
+  function countSol(pz, limit) {
+    grid = pz.slice(); rows = new Array(N).fill(0); cols = new Array(N).fill(0); boxes = new Array(N).fill(0);
+    for (var i = 0; i < NN; i++) if (grid[i]) { var b0 = 1 << (grid[i] - 1); rows[(i / N) | 0] |= b0; cols[i % N] |= b0; boxes[boxOf(i)] |= b0; }
+    var count = 0, sol = null;
+    (function go() {
+      if (count >= limit) return;
+      var bi = -1, bm = 0, bc = N + 1;
+      for (var i = 0; i < NN; i++) {
+        if (grid[i]) continue;
+        var m = cand((i / N) | 0, i % N), c = msPop(m);
+        if (c === 0) return;
+        if (c < bc) { bc = c; bi = i; bm = m; if (c === 1) break; }
+      }
+      if (bi === -1) { count++; if (count === 1) sol = grid.slice(); return; }
+      var b = boxOf(bi), r = (bi / N) | 0, cc = bi % N;
+      for (var d = 1; d <= N; d++) {
+        var bit = 1 << (d - 1);
+        if (!(bm & bit)) continue;
+        grid[bi] = d; rows[r] |= bit; cols[cc] |= bit; boxes[b] |= bit;
+        go();
+        grid[bi] = 0; rows[r] &= ~bit; cols[cc] &= ~bit; boxes[b] &= ~bit;
+        if (count >= limit) return;
+      }
+    })();
+    return { count: count, sol: sol };
+  }
+  // 挖空：删除后非唯一的格子不可重试（约束单调），未达标则换新解重开一轮
+  var best = null;
+  for (var attempt = 0; attempt < 8; attempt++) {
+    grid = new Array(NN).fill(0); rows = new Array(N).fill(0); cols = new Array(N).fill(0); boxes = new Array(N).fill(0);
+    if (!genSolve()) continue;
+    var sol = grid.slice(), pz = grid.slice();
+    var order = []; for (var i2 = 0; i2 < NN; i2++) order.push(i2);
+    msShuffle(order);
+    var holes = 0;
+    for (var k = 0; k < NN && holes < targetHoles; k++) {
+      var ci = order[k], keep = pz[ci];
+      pz[ci] = 0;
+      if (countSol(pz, 2).count === 1) holes++;
+      else pz[ci] = keep;
+    }
+    if (!best || holes > best.holes) best = { puzzle: pz.slice(), holes: holes, solution: sol };
+    if (best.holes >= targetHoles || Date.now() > deadline) break;
+  }
+  return best;
+}
+// ================= <<<GEN-END>>> 挖空区结束 =================
+
+// ================= DOM 引用 =================
+var canvas = document.getElementById("game"), ctx = canvas.getContext("2d");
+var elTime = document.getElementById("time"), elMist = document.getElementById("mistakes"), elBest = document.getElementById("best");
+var padBox = document.getElementById("pad"), digitsEl = document.getElementById("digits");
+var notesBtn = document.getElementById("notesBtn"), eraseBtn = document.getElementById("eraseBtn");
+var overlay = document.getElementById("overlay"), menuPanel = document.getElementById("menuPanel"), winPanel = document.getElementById("winPanel");
+var elMenuBest = document.getElementById("menuBest"), elFinal = document.getElementById("finalTime");
+var elWinMeta = document.getElementById("winMeta"), elWinMist = document.getElementById("winMist"), recBadge = document.getElementById("recBadge");
+var muteBtn = document.getElementById("muteBtn");
+
+// ================= 音效（WebAudio 合成） =================
+var actx = null, muted = false;
+try { muted = localStorage.getItem("ms_muted") === "1"; } catch (e) {}
+function unlockAudio() { try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); } catch (e) {} }
+function beep(freq, dur, type, gainv) {
+  if (muted) return;
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(gainv || 0.1, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + dur);
+  } catch (e) {}
+}
+function winJingle() {
+  beep(523, .12, "triangle", .09);
+  setTimeout(function () { beep(659, .12, "triangle", .09); }, 120);
+  setTimeout(function () { beep(784, .12, "triangle", .09); }, 240);
+  setTimeout(function () { beep(1047, .3, "triangle", .1); }, 360);
+}
+function updateMuteBtn() { muteBtn.textContent = muted ? "SOUND OFF" : "SOUND ON"; muteBtn.classList.toggle("on", !muted); }
+muteBtn.addEventListener("click", function () {
+  muted = !muted;
+  try { localStorage.setItem("ms_muted", muted ? "1" : "0"); } catch (e) {}
+  updateMuteBtn();
+  if (!muted) { unlockAudio(); beep(660, .06, "sine", .06); }
+});
+
+// ================= 平台埋点（域名守卫，仅在对应平台生效） =================
+function portalStart() {
+  try {
+    if (window.__portal === "crazygames" && window.CrazyGames && window.CrazyGames.SDK) {
+      window.CrazyGames.SDK.game.gameplayStart();
+    }
+  } catch (e) {}
+}
+function portalStop(happy) {
+  try {
+    if (window.__portal === "crazygames" && window.CrazyGames && window.CrazyGames.SDK) {
+      window.CrazyGames.SDK.game.gameplayStop();
+      if (happy) window.CrazyGames.SDK.game.happytime();
+    }
+  } catch (e) {}
+}
+
+// ================= 游戏状态 =================
+var state = "MENU";                 // MENU | PLAYING | WON
+var N = 9, BW = 3, BH = 3, diff = "medium";
+var given = [], vals = [], notes = [], solution = [];   // given:提示格 vals:当前值 notes:候选位掩码
+var selected = -1, notesMode = false, mistakes = 0;
+var startT = 0, hideAt = 0, lastSec = -1;
+var selSize = 6, selDiff = "medium";                    // 菜单当前选择
+function boxIdx(i) { return ((((i / N) | 0) / BH) | 0) * (N / BW) + (((i % N) / BW) | 0); }
+for (var ii = 0; ii < 81; ii++) { given.push(false); vals.push(0); notes.push(0); solution.push(0); }
+
+function fmtTime(s) { var m = (s / 60) | 0, ss = s % 60; return m + ":" + (ss < 10 ? "0" : "") + ss; }
+function bestKey() { return "ms_best_" + N + "_" + diff; }
+function loadBest() { try { var v = parseInt(localStorage.getItem(bestKey()) || "", 10); return v > 0 ? v : null; } catch (e) { return null; } }
+function saveBest(t) { try { localStorage.setItem(bestKey(), String(t)); } catch (e) {} }
+function refreshBest() { var b = loadBest(); elBest.textContent = b ? fmtTime(b) : "--"; }
+
+// ================= 布局（canvas 自适应） =================
+var dpr = 1, cell = 40, boardPx = 360;
+function layout() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var hudH = document.getElementById("hud").offsetHeight;
+  var padH = padBox.offsetHeight, footH = document.getElementById("footer").offsetHeight;
+  var availW = Math.min(window.innerWidth, 560) - 20;
+  var availH = window.innerHeight - hudH - padH - footH - 22;
+  var bs = Math.max(180, Math.min(availW, availH, 504));
+  cell = Math.max(16, Math.floor((bs - 2) / N));
+  boardPx = cell * N + 2;
+  canvas.width = boardPx * dpr; canvas.height = boardPx * dpr;
+  canvas.style.width = boardPx + "px"; canvas.style.height = boardPx + "px";
+}
+window.addEventListener("resize", layout);
+window.addEventListener("orientationchange", function () { setTimeout(layout, 120); });
+
+// ================= 渲染 =================
+function roundRect(c, x, y, w, h, rad) {
+  c.beginPath();
+  c.moveTo(x + rad, y);
+  c.arcTo(x + w, y, x + w, y + h, rad);
+  c.arcTo(x + w, y + h, x, y + h, rad);
+  c.arcTo(x, y + h, x, y, rad);
+  c.arcTo(x, y, x + w, y, rad);
+  c.closePath();
+}
+function render() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, boardPx, boardPx);
+  roundRect(ctx, 0.5, 0.5, boardPx - 1, boardPx - 1, 10);
+  ctx.fillStyle = "#181830"; ctx.fill();
+  var selR = -1, selC = -1, selV = 0, selB = -1;
+  if (selected >= 0 && state === "PLAYING") {
+    selR = (selected / N) | 0; selC = selected % N; selB = boxIdx(selected);
+    selV = vals[selected];
+  }
+  var i, r, c, x, y;
+  // 底色：选中 / 同数 / 同行列宫 / 错误
+  for (i = 0; i < N * N; i++) {
+    r = (i / N) | 0; c = i % N; x = 1 + c * cell; y = 1 + r * cell;
+    var bg = null;
+    if (i === selected) bg = "rgba(124,140,255,.35)";
+    else if (selV > 0 && vals[i] === selV) bg = "rgba(124,140,255,.16)";
+    else if (selB >= 0 && (r === selR || c === selC || boxIdx(i) === selB)) bg = "rgba(255,255,255,.05)";
+    if (bg) { ctx.fillStyle = bg; ctx.fillRect(x, y, cell, cell); }
+    if (vals[i] && !given[i] && vals[i] !== solution[i]) {
+      ctx.fillStyle = "rgba(255,80,100,.18)"; ctx.fillRect(x, y, cell, cell);
+    }
+  }
+  // 细网格线
+  ctx.strokeStyle = "rgba(255,255,255,.10)"; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (var k = 1; k < N; k++) {
+    if (k % BW === 0) continue;
+    ctx.moveTo(1 + k * cell, 1); ctx.lineTo(1 + k * cell, boardPx - 1);
+    if (k % BH === 0) continue;
+    ctx.moveTo(1, 1 + k * cell); ctx.lineTo(boardPx - 1, 1 + k * cell);
+  }
+  ctx.stroke();
+  // 宫粗线 + 外框
+  ctx.strokeStyle = "rgba(139,153,255,.85)"; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (var k2 = 0; k2 <= N; k2 += BW) { ctx.moveTo(1 + k2 * cell, 1); ctx.lineTo(1 + k2 * cell, boardPx - 1); }
+  for (var k3 = 0; k3 <= N; k3 += BH) { ctx.moveTo(1, 1 + k3 * cell); ctx.lineTo(boardPx - 1, 1 + k3 * cell); }
+  ctx.stroke();
+  roundRect(ctx, 1, 1, boardPx - 2, boardPx - 2, 9); ctx.stroke();
+  // 数字与候选笔记
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  var nCols = N === 4 ? 2 : 3, nRows = Math.ceil(N / nCols);
+  for (i = 0; i < N * N; i++) {
+    r = (i / N) | 0; c = i % N; x = 1 + c * cell; y = 1 + r * cell;
+    if (vals[i]) {
+      ctx.font = "700 " + Math.round(cell * 0.55) + "px sans-serif";
+      ctx.fillStyle = given[i] ? "#f0f2ff" : (vals[i] === solution[i] ? "#7fb2ff" : "#ff5f70");
+      ctx.fillText(String(vals[i]), x + cell / 2, y + cell / 2 + 1);
+    } else if (notes[i]) {
+      ctx.font = "600 " + Math.max(7, Math.round(cell * 0.21)) + "px sans-serif";
+      ctx.fillStyle = "#8f93b8";
+      for (var d = 1; d <= N; d++) {
+        if (!(notes[i] & (1 << (d - 1)))) continue;
+        var dx = (d - 1) % nCols, dy = ((d - 1) / nCols) | 0;
+        ctx.fillText(String(d), x + cell * (dx + 0.5) / nCols, y + cell * (dy + 0.5) / nRows + 1);
+      }
+    }
+  }
+}
+var last = 0;
+function frame(t) {
+  var dt = Math.min((t - last) / 1000, 0.05); last = t;
+  if (state === "PLAYING") {
+    var sec = ((Date.now() - startT) / 1000) | 0;
+    if (sec !== lastSec) { lastSec = sec; elTime.textContent = fmtTime(sec); }
+  }
+  render();
+  requestAnimationFrame(frame);
+}
+
+// ================= 数字键盘 =================
+var keyEls = [];
+function buildPad() {
+  digitsEl.innerHTML = ""; keyEls = [];
+  digitsEl.className = "n" + N;
+  var mkDigit = function (d) {
+    return function () { unlockAudio(); enterDigit(d); };
+  };
+  for (var d = 1; d <= N; d++) {
+    var b = document.createElement("button");
+    b.className = "key"; b.textContent = String(d);
+    b.addEventListener("click", mkDigit(d));
+    digitsEl.appendChild(b); keyEls.push(b);
+  }
+}
+function updateKeys() {
+  for (var d = 1; d <= N; d++) {
+    var cnt = 0;
+    for (var i = 0; i < N * N; i++) if (vals[i] === d && solution[i] === d) cnt++;
+    if (keyEls[d - 1]) keyEls[d - 1].classList.toggle("done", cnt >= N);
+  }
+}
+function toggleNotes() {
+  if (state !== "PLAYING") return;
+  notesMode = !notesMode;
+  notesBtn.textContent = notesMode ? "NOTES · ON" : "NOTES · OFF";
+  notesBtn.classList.toggle("on", notesMode);
+  beep(notesMode ? 740 : 440, .05, "sine", .05);
+}
+notesBtn.addEventListener("click", function () { unlockAudio(); toggleNotes(); });
+function eraseCell() {
+  if (state !== "PLAYING" || selected < 0 || given[selected]) return;
+  if (vals[selected]) { vals[selected] = 0; beep(300, .05, "sine", .05); }
+  else if (notes[selected]) notes[selected] = 0;
+  updateKeys();
+}
+eraseBtn.addEventListener("click", function () { unlockAudio(); eraseCell(); });
+
+// ================= 填数 / 胜负 =================
+function clearPeerNotes(i, d) {
+  var r = (i / N) | 0, c = i % N, b = boxIdx(i), bit = ~(1 << (d - 1));
+  for (var j = 0; j < N * N; j++) {
+    if (j === i) continue;
+    var rj = (j / N) | 0, cj = j % N;
+    if (rj === r || cj === c || boxIdx(j) === b) notes[j] &= bit;
+  }
+}
+function enterDigit(d) {
+  if (state !== "PLAYING" || selected < 0) return;
+  if (given[selected]) { beep(160, .08, "square", .04); return; }
+  if (notesMode && !vals[selected]) {
+    notes[selected] ^= (1 << (d - 1));
+    beep(680, .04, "sine", .04);
+    return;
+  }
+  if (vals[selected] === d) { vals[selected] = 0; beep(300, .05, "sine", .05); updateKeys(); return; }   // 同数再点 = 擦除
+  vals[selected] = d;
+  notes[selected] = 0;
+  if (d === solution[selected]) {
+    clearPeerNotes(selected, d);
+    beep(500 + d * 22, .07, "triangle", .07);
+    updateKeys();
+    checkWin();
+  } else {
+    mistakes++; elMist.textContent = String(mistakes);
+    beep(180, .18, "sawtooth", .07);
+    updateKeys();
+  }
+}
+function checkWin() {
+  for (var i = 0; i < N * N; i++) if (vals[i] !== solution[i]) return;
+  winGame();
+}
+function winGame() {
+  state = "WON";
+  var t = Math.max(1, Math.round((Date.now() - startT) / 1000));
+  var prev = loadBest(), record = false;
+  if (!prev || t < prev) { saveBest(t); record = true; }
+  refreshBest();
+  elFinal.textContent = fmtTime(t);
+  elWinMeta.textContent = N + "×" + N + " · " + diff.charAt(0).toUpperCase() + diff.slice(1);
+  elWinMist.textContent = "Mistakes: " + mistakes + " · Best: " + fmtTime(loadBest() || t);
+  recBadge.style.display = record ? "inline-block" : "none";
+  showPanel("win");
+  winJingle();
+  portalStop(true);   // 平台埋点：一局结束
+}
+
+// ================= 开局 / 菜单 =================
+function newGame(nSize, dDiff) {
+  N = nSize;
+  var bb = SIZES[String(N)]; BW = bb[0]; BH = bb[1];
+  diff = dDiff;
+  var gen = msGenerate(N, BW, BH, HOLES[String(N)][diff], Date.now() + (N === 9 ? 1000 : 350));
+  solution = gen.solution;
+  given = []; vals = []; notes = [];
+  for (var i = 0; i < N * N; i++) {
+    given.push(gen.puzzle[i] > 0);
+    vals.push(gen.puzzle[i]);
+    notes.push(0);
+  }
+  selected = -1; mistakes = 0; notesMode = false; lastSec = -1;
+  notesBtn.textContent = "NOTES · OFF"; notesBtn.classList.remove("on");
+  elMist.textContent = "0"; elTime.textContent = "0:00";
+  startT = Date.now();
+  state = "PLAYING";
+  hideOverlay();
+  buildPad(); layout(); refreshBest(); updateKeys();
+  padBox.classList.remove("off");
+  portalStart();   // 平台埋点：开始一局
+}
+function showPanel(name) {
+  overlay.style.display = "flex";
+  menuPanel.style.display = name === "menu" ? "block" : "none";
+  winPanel.style.display = name === "win" ? "block" : "none";
+}
+function hideOverlay() { overlay.style.display = "none"; }
+function refreshMenuBest() {
+  var key = "ms_best_" + selSize + "_" + selDiff, v = null;
+  try { v = parseInt(localStorage.getItem(key) || "", 10); } catch (e) {}
+  elMenuBest.textContent = (v > 0)
+    ? "Best time — " + selSize + "×" + selSize + " " + selDiff.charAt(0).toUpperCase() + selDiff.slice(1) + ": " + fmtTime(v)
+    : "No best time yet for " + selSize + "×" + selSize + " " + selDiff + " — set one!";
+}
+function wireOpts(rowId, attr, cb) {
+  var row = document.getElementById(rowId);
+  var btns = row.querySelectorAll(".opt");
+  for (var i = 0; i < btns.length; i++) {
+    (function (b) {
+      b.addEventListener("click", function () {
+        for (var j = 0; j < btns.length; j++) btns[j].classList.remove("sel");
+        b.classList.add("sel");
+        cb(b.getAttribute(attr));
+        unlockAudio(); beep(600, .05, "sine", .05);
+      });
+    })(btns[i]);
+  }
+}
+wireOpts("sizeRow", "data-size", function (v) { selSize = parseInt(v, 10); refreshMenuBest(); });
+wireOpts("diffRow", "data-diff", function (v) { selDiff = v; refreshMenuBest(); });
+document.getElementById("startBtn").addEventListener("click", function () { unlockAudio(); newGame(selSize, selDiff); });
+document.getElementById("againBtn").addEventListener("click", function () { unlockAudio(); newGame(N, diff); });
+document.getElementById("menuBtn").addEventListener("click", function () {
+  state = "MENU";
+  padBox.classList.add("off");
+  refreshMenuBest();
+  showPanel("menu");
+  portalStop(false);
+});
+
+// ================= 输入：点选 + 键盘 =================
+function cellAt(clientX, clientY) {
+  var rect = canvas.getBoundingClientRect();
+  var x = (clientX - rect.left) / rect.width * boardPx;
+  var y = (clientY - rect.top) / rect.height * boardPx;
+  var c = Math.floor((x - 1) / cell), r = Math.floor((y - 1) / cell);
+  if (c < 0 || c >= N || r < 0 || r >= N) return -1;
+  return r * N + c;
+}
+canvas.addEventListener("mousedown", function (e) {
+  unlockAudio();
+  if (state === "PLAYING") selected = cellAt(e.clientX, e.clientY);
+});
+canvas.addEventListener("touchstart", function (e) {
+  e.preventDefault();
+  unlockAudio();
+  if (state === "PLAYING") selected = cellAt(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+document.addEventListener("keydown", function (e) {
+  var k = e.key;
+  if (state === "MENU") {
+    if (k === "Enter" || k === " ") { e.preventDefault(); unlockAudio(); newGame(selSize, selDiff); }
+    return;
+  }
+  if (state === "WON") {
+    if (k === "Enter") { unlockAudio(); newGame(N, diff); }
+    return;
+  }
+  if (k >= "1" && k <= "9") { enterDigit(parseInt(k, 10)); return; }
+  if (k === "Backspace" || k === "Delete" || k === "0") { eraseCell(); return; }
+  if (k === "n" || k === "N") { toggleNotes(); return; }
+  if (k === "m" || k === "M") { muteBtn.click(); return; }
+  if (k.indexOf("Arrow") === 0) {
+    e.preventDefault();
+    if (state !== "PLAYING") return;
+    if (selected < 0) { selected = 0; return; }
+    var r = (selected / N) | 0, c = selected % N;
+    if (k === "ArrowUp") r = (r + N - 1) % N;
+    else if (k === "ArrowDown") r = (r + 1) % N;
+    else if (k === "ArrowLeft") c = (c + N - 1) % N;
+    else if (k === "ArrowRight") c = (c + 1) % N;
+    selected = r * N + c;
+  }
+});
+// 切后台暂停计时
+document.addEventListener("visibilitychange", function () {
+  if (state !== "PLAYING") return;
+  if (document.hidden) hideAt = Date.now();
+  else if (hideAt) { startT += Date.now() - hideAt; hideAt = 0; }
+});
+
+// ================= 调试/测试钩子（不影响游戏逻辑） =================
+window.__ms = {
+  get state() { return state; },
+  get vals() { return vals; },
+  get notes() { return notes; },
+  get solution() { return solution; },
+  get selected() { return selected; },
+  get mistakes() { return mistakes; },
+  get notesMode() { return notesMode; },
+  select: function (i) { selected = i; },
+  enter: enterDigit,
+  erase: eraseCell,
+  newGame: newGame,
+  autoWin: function () { if (state !== "PLAYING") return false; for (var i = 0; i < vals.length; i++) vals[i] = solution[i]; checkWin(); return true; }
+};
+
+// ================= 启动 =================
+updateMuteBtn();
+refreshMenuBest();
+buildPad();
+layout();
+showPanel("menu");
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
